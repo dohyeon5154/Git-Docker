@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Git &amp; Docker 하루 완성 · 6교시</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+:root{
+  --paper:#E8EBF1;
+  --surface:#FFFFFF;
+  --ink:#131824;
+  --muted:#6B7486;
+  --line:#CBD2DE;
+  --line-soft:#E2E6EE;
+  --git:#B0335B;
+  --dock:#0E7C7B;
+  --stage:#3A63B8;
+  --warn:#B87209;
+  --ok:#2E7D4F;
+  --danger:#AF2B2B;
+  --accent:var(--git);
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(to right,rgba(19,24,36,.05) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(19,24,36,.05) 1px,transparent 1px);
+  background-size:26px 26px;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit}
+
+/* ── shell ─────────────────────────────── */
+.deck{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.topbar{
+  flex:none;background:rgba(232,235,241,.93);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:10px 18px 0;
+}
+.brandline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:9px}
+.brand{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.brand .slash{color:var(--line);margin:0 7px;font-weight:400}
+.brand-sub{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+.rail{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding-bottom:9px}
+.seg{
+  appearance:none;border:0;background:none;text-align:left;cursor:pointer;
+  padding:7px 0 0;border-top:3px solid var(--line);transition:border-color .2s,color .2s;
+}
+.seg .n{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;display:block}
+.seg .t{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;display:block;margin-top:1px}
+.seg:hover .t{color:var(--ink)}
+.seg[data-on="1"]{border-top-color:var(--segc)}
+.seg[data-on="1"] .n{color:var(--segc)}
+.seg[data-on="1"] .t{color:var(--ink);font-weight:700}
+.seg:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+@media (max-width:700px){
+  .rail{gap:4px}
+  .seg .t{display:none}
+  .seg{padding-top:6px}
+}
+
+.pages{flex:1;position:relative;overflow:hidden}
+.page{position:absolute;inset:0;overflow-y:auto;padding:26px 18px 90px;display:none}
+.page.on{display:block;animation:fade .28s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.wrap{max-width:1240px;margin:0 auto}
+
+.phead{margin-bottom:20px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--accent);font-weight:700}
+.phead h1{font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.035em;margin:6px 0 6px;font-weight:800}
+.phead p{margin:0;color:var(--muted);font-size:14px;max-width:62ch;line-height:1.6}
+
+.cols{display:grid;grid-template-columns:290px minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:940px){.cols{grid-template-columns:1fr}}
+
+/* ── brief column ───────────────────────── */
+.brief{position:sticky;top:4px}
+@media (max-width:940px){.brief{position:static}}
+.brief h3{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;color:var(--muted);
+  margin:0 0 10px;font-weight:700;text-transform:uppercase;
+}
+.blist{list-style:none;margin:0 0 18px;padding:0;border-top:1px solid var(--line)}
+.blist li{
+  border-bottom:1px solid var(--line-soft);padding:9px 0 9px 14px;font-size:13.5px;line-height:1.5;
+  position:relative;color:#2C3444;
+}
+.blist li::before{content:"";position:absolute;left:0;top:16px;width:5px;height:5px;background:var(--accent);border-radius:50%}
+.blist li b{font-weight:700;color:var(--ink)}
+.cmd{font-family:var(--mono);font-size:12px;background:#F1F3F8;border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;white-space:nowrap}
+.goal{
+  border-left:3px solid var(--accent);padding:10px 0 10px 12px;font-size:13px;line-height:1.55;color:#2C3444;
+  background:linear-gradient(90deg,rgba(19,24,36,.035),transparent);
+}
+.goal b{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--accent);margin-bottom:4px}
+
+/* ── lab panels ─────────────────────────── */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:7px;box-shadow:0 1px 2px rgba(19,24,36,.05);margin-bottom:16px}
+.panel-head{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:11px 14px;border-bottom:1px solid var(--line-soft);
+}
+.panel-title{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.panel-title span{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.1em;margin-right:8px;font-weight:700}
+.panel-note{font-size:11.5px;color:var(--muted)}
+.panel-body{padding:14px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btnrow + .btnrow{margin-top:6px}
+.rowlab{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;width:100%;margin:6px 0 1px}
+.btn{
+  font-family:var(--mono);font-size:11.5px;padding:6px 10px;border-radius:5px;
+  border:1px solid var(--line);background:#FAFBFD;cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.btn:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover:not(:disabled){filter:brightness(.88);background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.dgr{border-color:var(--danger);color:var(--danger)}
+.btn.dgr:hover:not(:disabled){background:var(--danger);border-color:var(--danger);color:#fff}
+.btn.gho{background:transparent;border-style:dashed}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.statebar{
+  font-family:var(--mono);font-size:11.5px;padding:9px 14px;border-top:1px solid var(--line-soft);
+  background:#F7F9FC;color:#2C3444;border-radius:0 0 6px 6px;line-height:1.6;
+}
+.statebar b{color:var(--accent)}
+.hint{font-size:12.5px;line-height:1.55;color:#2C3444;margin-top:10px;padding:9px 11px;border-radius:5px;background:#F4F6FA;border-left:3px solid var(--line)}
+.hint.good{border-left-color:var(--ok);background:rgba(46,125,79,.07)}
+.hint.bad{border-left-color:var(--danger);background:rgba(175,43,43,.07)}
+.hint.warn{border-left-color:var(--warn);background:rgba(184,114,9,.08)}
+.hint b{font-weight:700}
+
+/* ── P1 zones ───────────────────────────── */
+.zones{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.zones.has-gone{grid-template-columns:repeat(4,1fr)}
+@media (max-width:720px){.zones,.zones.has-gone{grid-template-columns:1fr 1fr}}
+.zone{border:1px solid var(--line-soft);border-radius:6px;background:#FBFCFE;min-height:158px;display:flex;flex-direction:column}
+.zone-head{padding:8px 9px;border-bottom:1px dashed var(--line);}
+.zone-head .zn{font-size:12px;font-weight:700}
+.zone-head .zc{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.05em;display:block;margin-top:2px}
+.zone-body{padding:8px;display:flex;flex-direction:column;gap:6px}
+.zone[data-z="work"]{border-color:rgba(184,114,9,.4)}
+.zone[data-z="stage"]{border-color:rgba(58,99,184,.4)}
+.zone[data-z="repo"]{border-color:rgba(46,125,79,.4)}
+.zone[data-z="gone"]{border-color:rgba(175,43,43,.4);background:rgba(175,43,43,.04)}
+.fcard{
+  display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:5px;cursor:pointer;
+  background:#fff;border:1px solid var(--line);border-left-width:4px;font-family:var(--mono);font-size:11.5px;
+  text-align:left;width:100%;transition:box-shadow .15s,border-color .15s;
+}
+.fcard:hover{box-shadow:0 2px 6px rgba(19,24,36,.1)}
+.fcard:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.fcard .tick{
+  width:13px;height:13px;border:1px solid var(--line);border-radius:3px;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;line-height:1;
+}
+.fcard[data-sel="1"]{border-color:var(--ink);box-shadow:0 0 0 2px rgba(19,24,36,.12)}
+.fcard[data-sel="1"] .tick{background:var(--ink);border-color:var(--ink)}
+.fcard .tag{margin-left:auto;font-size:9px;letter-spacing:.04em;padding:1px 5px;border-radius:3px}
+.fcard[data-z="work"]{border-left-color:var(--warn)}
+.fcard[data-z="work"] .tag{background:rgba(184,114,9,.13);color:var(--warn)}
+.fcard[data-z="stage"]{border-left-color:var(--stage)}
+.fcard[data-z="stage"] .tag{background:rgba(58,99,184,.13);color:var(--stage)}
+.fcard[data-z="repo"]{border-left-color:var(--ok)}
+.fcard[data-z="repo"] .tag{background:rgba(46,125,79,.13);color:var(--ok)}
+.fcard[data-z="gone"]{border-left-color:var(--danger);opacity:.6;text-decoration:line-through}
+.fcard[data-z="gone"] .tag{background:rgba(175,43,43,.13);color:var(--danger)}
+.emptyz{font-family:var(--mono);font-size:10px;color:#79828F;padding:4px 2px}
+
+.histstrip .refmark{margin-left:9px}
+.histstrip{display:flex;gap:0;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.hlabel{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;margin-right:10px}
+.cdot{
+  display:flex;align-items:center;gap:0;
+}
+.cdot .ball{
+  width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
+}
+.cdot .link{width:16px;height:2px;background:var(--line)}
+.cdot.head .ball{box-shadow:0 0 0 3px rgba(46,125,79,.22)}
+
+/* ── P2 graph ───────────────────────────── */
+.graphbox{width:100%;overflow-x:auto}
+.graphbox svg{display:block;min-width:520px}
+.gnode{transition:.2s}
+.merge-pred{
+  display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:11.5px;
+  padding:8px 11px;border:1px dashed var(--line);border-radius:5px;background:#FBFCFE;margin-top:10px;flex-wrap:wrap;
+}
+.pill{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:20px;font-weight:700}
+.pill.ff{background:rgba(58,99,184,.14);color:var(--stage)}
+.pill.tw{background:rgba(176,51,91,.14);color:var(--git)}
+.pill.na{background:#EEF0F5;color:var(--muted)}
+
+.conflict{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:620px){.conflict{grid-template-columns:1fr}}
+.side{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.side-h{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:6px 9px;color:#fff}
+.side-h.a{background:var(--stage)}
+.side-h.b{background:var(--git)}
+.side-c{padding:9px;font-family:var(--mono);font-size:12px;background:#FBFCFE}
+.codeblk{
+  font-family:var(--mono);font-size:12px;line-height:1.75;background:#1B2130;color:#D8DEEA;
+  border-radius:6px;padding:11px 13px;margin-top:10px;overflow-x:auto;white-space:pre;
+}
+.codeblk .mk{color:#F0A93A}
+.codeblk .ours{color:#8FB6F5}
+.codeblk .theirs{color:#F5879F}
+.codeblk .res{color:#8BD9A6}
+
+/* ── P3 sync ────────────────────────────── */
+.sync{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:stretch}
+@media (max-width:720px){.sync{grid-template-columns:1fr}}
+.repo{border:1px solid var(--line);border-radius:6px;background:#FBFCFE;display:flex;flex-direction:column}
+.repo-h{padding:8px 10px;border-bottom:1px solid var(--line-soft)}
+.repo-h .rn{font-size:12px;font-weight:700}
+.repo-h .rs{font-family:var(--mono);font-size:9.5px;color:var(--muted);display:block;margin-top:2px}
+.repo-b{padding:10px;display:flex;flex-direction:column-reverse;gap:5px;flex:1;justify-content:flex-start}
+.crow{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px}
+.cball{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex:none}
+.crow .cid{color:var(--muted)}
+.cball.me{background:var(--dock)}
+.cball.team{background:var(--git)}
+.cball.merge{background:var(--stage)}
+.refmark{
+  font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:3px;border:1px dashed var(--stage);
+  color:var(--stage);background:rgba(58,99,184,.06);
+}
+.refmark.main{border-style:solid;border-color:var(--ok);color:var(--ok);background:rgba(46,125,79,.07)}
+.crow.ghost{opacity:.55}
+.crow.ghost .cball{box-shadow:0 0 0 2px #fff, 0 0 0 3px currentColor;color:var(--line)}
+.dirty{
+  font-family:var(--mono);font-size:11px;padding:7px 9px;border:1px dashed var(--warn);border-radius:5px;
+  color:var(--warn);background:rgba(184,114,9,.07);
+}
+.clean{font-family:var(--mono);font-size:11px;color:#79828F;padding:7px 2px}
+
+/* ── P4 lifecycle ───────────────────────── */
+.life{display:flex;align-items:center;gap:0;flex-wrap:wrap;justify-content:center;padding:6px 0 2px}
+.lnode{
+  border:1px solid var(--line);border-radius:6px;padding:9px 12px;text-align:center;background:#FBFCFE;
+  min-width:104px;transition:.25s;
+}
+.lnode .ln{font-size:12px;font-weight:700}
+.lnode .lc{font-family:var(--mono);font-size:9px;color:var(--muted);display:block;margin-top:2px}
+.lnode[data-on="1"]{background:var(--dock);border-color:var(--dock);color:#fff;box-shadow:0 3px 10px rgba(14,124,123,.28)}
+.lnode[data-on="1"] .lc{color:rgba(255,255,255,.75)}
+.larrow{display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 4px;min-width:58px}
+.larrow .la{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.larrow .ll{width:100%;height:1px;background:var(--line);position:relative}
+.larrow .ll::after{content:"";position:absolute;right:-1px;top:-3px;border:4px solid transparent;border-left-color:var(--line)}
+
+.hostbox{border:1px solid var(--line);border-radius:6px;padding:11px;background:#FBFCFE}
+.urlbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.urlbar .fake{
+  font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:20px;padding:6px 12px;background:#fff;flex:1;min-width:150px;
+}
+.portmap{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0 2px;flex-wrap:wrap}
+.portbox{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:5px;padding:7px 11px;background:#fff;text-align:center}
+.portbox b{display:block;font-size:13px;margin-top:2px}
+.pipe{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em}
+.pipe.live{color:var(--dock);font-weight:700}
+.pipe.dead{color:var(--danger)}
+
+/* ── P5 cache ───────────────────────────── */
+.dfgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:820px){.dfgrid{grid-template-columns:1fr}}
+.df{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.df-h{padding:8px 10px;font-size:12px;font-weight:700;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.df-h .badge{font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:3px;background:#EEF0F5;color:var(--muted)}
+.df-h .badge.gd{background:rgba(46,125,79,.13);color:var(--ok)}
+.df-h .badge.bd{background:rgba(175,43,43,.13);color:var(--danger)}
+.dline{
+  display:flex;align-items:center;gap:9px;padding:6px 10px;font-family:var(--mono);font-size:11.5px;
+  border-bottom:1px dashed var(--line-soft);transition:.2s;
+}
+.dline:last-child{border-bottom:0}
+.dline .num{color:#99A2B0;font-size:9.5px;width:12px;flex:none}
+.dline .code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dline .st{font-size:9px;padding:2px 6px;border-radius:3px;flex:none;letter-spacing:.03em}
+.dline[data-st="cached"]{opacity:.5}
+.dline[data-st="cached"] .st{background:#EEF0F5;color:var(--muted)}
+.dline[data-st="rebuild"]{background:rgba(175,43,43,.06)}
+.dline[data-st="rebuild"] .st{background:rgba(175,43,43,.14);color:var(--danger)}
+.dline[data-st="rebuild"] .code{font-weight:700}
+.dline[data-st="idle"] .st{background:#F1F3F8;color:#99A2B0}
+.timebar{padding:10px}
+.tb{height:16px;border-radius:3px;background:#EEF0F5;overflow:hidden;position:relative}
+.tb i{display:block;height:100%;background:var(--dock);width:0;transition:width .5s ease-out}
+.tb.slow i{background:var(--danger)}
+.tlabel{font-family:var(--mono);font-size:11px;margin-top:5px;display:flex;justify-content:space-between}
+
+.volgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:620px){.volgrid{grid-template-columns:1fr}}
+.vbox{border:1px solid var(--line);border-radius:6px;padding:11px;text-align:center;background:#FBFCFE}
+.vbox .vt{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:8px}
+.vdisk{
+  border:1px solid var(--line);border-radius:6px;padding:9px;font-family:var(--mono);font-size:11px;background:#fff;
+  transition:.3s;
+}
+.vdisk.gone{background:rgba(175,43,43,.07);border-color:var(--danger);color:var(--danger);text-decoration:line-through}
+.vdisk.kept{background:rgba(46,125,79,.07);border-color:var(--ok);color:var(--ok)}
+
+/* ── P6 compose ─────────────────────────── */
+.cmpgrid{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr);gap:12px}
+@media (max-width:900px){.cmpgrid{grid-template-columns:1fr}}
+.yaml{background:#1B2130;border-radius:6px;padding:10px 4px;font-family:var(--mono);font-size:11.5px;line-height:1.6;overflow-x:auto}
+.yline{
+  display:block;width:100%;text-align:left;background:none;border:0;color:#C9D2E2;padding:1px 10px;
+  white-space:pre;cursor:default;border-left:3px solid transparent;
+}
+.yline[data-k]{cursor:pointer}
+.yline[data-cm="1"]{color:#6C7789}
+.yline[data-k]:hover,.yline[data-hot="1"]{background:rgba(255,255,255,.09);border-left-color:#F0A93A;color:#fff}
+.yline:focus-visible{outline:2px solid #F0A93A;outline-offset:-2px}
+.diagbox svg{display:block;width:100%;height:auto}
+.dg{transition:.2s}
+.dg[data-hot="1"] .box{stroke:#B87209;stroke-width:2.5}
+.dg[data-hot="1"] .glow{opacity:.22}
+.linkcap{
+  font-size:12.5px;line-height:1.55;margin-top:10px;padding:9px 11px;border-radius:5px;
+  background:#F4F6FA;border-left:3px solid var(--dock);min-height:40px;
+}
+.linkcap b{font-family:var(--mono);font-size:11px;color:var(--dock)}
+
+.stagebars{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.sbar{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px}
+.sbar .nm{width:104px;flex:none}
+.sbar .track{flex:1;height:18px;background:#EEF0F5;border-radius:3px;overflow:hidden}
+.sbar .track i{display:block;height:100%;transition:width .55s ease-out}
+.sbar .track i.big{background:var(--danger)}
+.sbar .track i.small{background:var(--dock)}
+.sbar .amt{width:66px;text-align:right;flex:none}
+
+/* ── footer nav ─────────────────────────── */
+.footnav{
+  position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:8px;padding:12px;
+  background:linear-gradient(to top,var(--paper) 62%,rgba(232,235,241,0));pointer-events:none;
+}
+.footnav button{
+  pointer-events:auto;font-family:var(--mono);font-size:11.5px;padding:8px 15px;border-radius:20px;
+  border:1px solid var(--line);background:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(19,24,36,.09);transition:.15s;
+}
+.footnav button:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.footnav button:disabled{opacity:.35;cursor:not-allowed}
+.footnav .pos{
+  pointer-events:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--muted);
+  padding:0 4px;
+}
+@media (max-width:560px){
+  .life{flex-direction:column;align-items:stretch}
+  .lnode{width:100%}
+  .larrow{width:100%;padding:5px 0}
+  .larrow .ll{width:1px;height:16px;margin:0 auto}
+  .larrow .ll::after{right:-3px;top:auto;bottom:-1px;border-left-color:transparent;border-top-color:var(--line)}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <header class="topbar">
+    <div class="brandline">
+      <div class="brand">Git <span class="slash">&amp;</span> Docker <span class="slash">/</span> 하루 완성</div>
+      <div class="brand-sub">50분 × 6교시 · ONLINE</div>
+    </div>
+    <nav class="rail" id="rail" aria-label="교시 이동"></nav>
+  </header>
+
+  <main class="pages" id="pages">
+
+  <!-- ══════════ 1교시 ══════════ -->
+  <section class="page on" data-track="git" id="p1">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">1교시 · GIT 기초</div>
+      <h1>파일은 세 개의 방을 지나 기록된다</h1>
+      <p>Git의 명령어를 외우기 전에, 파일이 어디에 있는지를 먼저 봅니다. 파일을 골라 명령을 실행하면 어느 방에서 어느 방으로 옮겨지는지 그대로 보입니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><b>세 개의 영역</b> — 작업 디렉터리 · 스테이징 · 저장소</li>
+          <li><span class="cmd">add</span> 는 옮기고, <span class="cmd">commit</span> 은 기록한다</li>
+          <li><span class="cmd">restore</span> 로 되돌리는 두 방향</li>
+          <li><b>reset 3형제</b>의 차이 — 어디까지 되돌리는가</li>
+          <li><span class="cmd">.gitignore</span> 로 추적에서 빼기</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>커밋을 만들고, 잘못 만든 커밋을 되돌릴 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 01</span>파일을 골라 명령을 실행해 보세요</div>
+            <div class="panel-note">카드를 클릭해 선택 → 아래 명령 실행</div>
+          </div>
+          <div class="panel-body">
+            <div class="zones" id="p1zones"></div>
+            <div class="histstrip" id="p1hist"></div>
+
+            <div class="rowlab">앞으로 보내기</div>
+            <div class="btnrow">
+              <button class="btn pri" id="b-add">git add &lt;선택&gt;</button>
+              <button class="btn pri" id="b-commit">git commit -m "..."</button>
+              <button class="btn gho" id="b-edit">파일 수정하기</button>
+            </div>
+            <div class="rowlab">뒤로 되돌리기</div>
+            <div class="btnrow">
+              <button class="btn" id="b-unstage">git restore --staged</button>
+              <button class="btn" id="b-discard">git restore &lt;선택&gt;</button>
+            </div>
+            <div class="rowlab">마지막 커밋 취소 — 세 가지 깊이</div>
+            <div class="btnrow">
+              <button class="btn" id="b-soft">reset --soft HEAD~1</button>
+              <button class="btn" id="b-mixed">reset --mixed HEAD~1</button>
+              <button class="btn dgr" id="b-hard">reset --hard HEAD~1</button>
+              <button class="btn gho" id="b-reset1">처음부터</button>
+            </div>
+            <div class="hint" id="p1hint">파일 3개가 모두 작업 디렉터리에 있습니다. 아직 Git은 이 파일들을 기록한 적이 없습니다.</div>
+          </div>
+          <div class="statebar" id="p1state"></div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 2교시 ══════════ -->
+  <section class="page" data-track="git" id="p2">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">2교시 · 브랜치와 병합</div>
+      <h1>그래프의 모양이 병합 방식을 결정한다</h1>
+      <p>fast-forward와 3-way 병합은 옵션이 아니라 결과입니다. 커밋을 어디에 쌓았는지에 따라 Git이 알아서 다른 길을 고릅니다. 직접 쌓아 보며 확인합니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li>브랜치는 <b>커밋을 가리키는 이름표</b>일 뿐</li>
+          <li><span class="cmd">HEAD</span> 가 지금 어디를 보고 있는가</li>
+          <li>fast-forward vs 3-way merge</li>
+          <li><b>충돌</b>은 같은 줄을 양쪽에서 고쳤을 때만</li>
+          <li><span class="cmd">stash</span> 로 작업 잠시 치워두기</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>브랜치를 나누고 충돌을 직접 해결할 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 02-A</span>커밋 그래프 만들기</div>
+            <div class="panel-note">merge 전에 예측을 먼저 확인하세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="graphbox" id="p2graph"></div>
+            <div class="merge-pred">
+              <span>다음 <b>git merge feature</b> 결과 예측 →</span>
+              <span class="pill na" id="p2pred">아직 판단 불가</span>
+              <span id="p2predwhy" style="color:var(--muted);font-size:11px"></span>
+            </div>
+            <div class="rowlab">명령</div>
+            <div class="btnrow">
+              <button class="btn pri" id="b2-commit">git commit</button>
+              <button class="btn" id="b2-branch">git branch feature</button>
+              <button class="btn" id="b2-sw-main">git switch main</button>
+              <button class="btn" id="b2-sw-feat">git switch feature</button>
+              <button class="btn pri" id="b2-merge">git merge feature</button>
+              <button class="btn gho" id="b2-reset">처음부터</button>
+            </div>
+            <div class="hint" id="p2hint">먼저 <b>main</b>에 커밋을 두어 개 쌓고, <b>git branch feature</b>로 갈래를 만들어 보세요.</div>
+          </div>
+          <div class="statebar" id="p2state"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 02-B</span>충돌은 어떻게 생기고 어떻게 지워지는가</div>
+            <div class="panel-note">양쪽이 같은 줄을 고쳤습니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="conflict">
+              <div class="side">
+                <div class="side-h a">main 의 3번째 줄</div>
+                <div class="side-c" id="p2left">const title = "우리 서비스";</div>
+              </div>
+              <div class="side">
+                <div class="side-h b">feature 의 3번째 줄</div>
+                <div class="side-c" id="p2right">const title = "Our Service";</div>
+              </div>
+            </div>
+            <div class="codeblk" id="p2code">3번째 줄을 서로 다르게 고쳤습니다. 아래에서 병합해 보세요.</div>
+            <div class="rowlab">해결 방법 고르기</div>
+            <div class="btnrow">
+              <button class="btn pri" id="b2-domerge">git merge → 충돌 발생</button>
+              <button class="btn" id="b2-ours" disabled>내 쪽(main) 유지</button>
+              <button class="btn" id="b2-theirs" disabled>상대 쪽(feature) 유지</button>
+              <button class="btn" id="b2-both" disabled>둘 다 살려 직접 수정</button>
+              <button class="btn gho" id="b2-creset">되돌리기</button>
+            </div>
+            <div class="hint" id="p2chint">충돌 표시자 <span class="cmd">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span> <span class="cmd">=======</span> <span class="cmd">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</span> 는 Git이 남긴 메모입니다. 지우는 것은 사람의 몫입니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 3교시 ══════════ -->
+  <section class="page" data-track="git" id="p3">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">3교시 · 원격 저장소와 협업</div>
+      <h1>origin/main 은 원격이 아니라 내 컴퓨터의 메모다</h1>
+      <p>push가 거절되는 이유, fetch와 pull이 다른 이유는 세 저장소의 위치 관계 하나로 전부 설명됩니다. 동료가 먼저 push한 상황을 만들어 확인해 보세요.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><span class="cmd">clone</span> <span class="cmd">push</span> <span class="cmd">fetch</span> <span class="cmd">pull</span> 의 방향</li>
+          <li><b>fetch = 가져오기</b>, <b>pull = 가져와 합치기</b></li>
+          <li>push 거절(non-fast-forward)이 뜨는 조건</li>
+          <li>Pull Request 흐름과 코드 리뷰</li>
+          <li>브랜치 전략 — GitHub Flow</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>충돌 없이 팀과 코드를 주고받을 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 03</span>세 저장소 동기화</div>
+            <div class="panel-note">동료를 먼저 움직여 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="sync" id="p3sync"></div>
+            <div class="rowlab">내 작업</div>
+            <div class="btnrow">
+              <button class="btn gho" id="b3-edit">파일 수정</button>
+              <button class="btn pri" id="b3-commit">git commit</button>
+              <button class="btn pri" id="b3-push">git push</button>
+            </div>
+            <div class="rowlab">원격 반영하기</div>
+            <div class="btnrow">
+              <button class="btn" id="b3-fetch">git fetch</button>
+              <button class="btn" id="b3-pull">git pull</button>
+            </div>
+            <div class="rowlab">상황 만들기</div>
+            <div class="btnrow">
+              <button class="btn dgr" id="b3-team">동료가 push 했다</button>
+              <button class="btn gho" id="b3-reset">처음부터</button>
+            </div>
+            <div class="hint" id="p3hint">동료가 push한 뒤에 내가 push하면 어떻게 되는지 순서대로 눌러 보세요.</div>
+          </div>
+          <div class="statebar" id="p3state"></div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 4교시 ══════════ -->
+  <section class="page" data-track="docker" id="p4">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">4교시 · DOCKER 기초</div>
+      <h1>이미지는 설계도, 컨테이너는 켜져 있는 실물</h1>
+      <p>명령어가 안 먹히는 대부분의 이유는 지금 상태에서 할 수 없는 일을 시켰기 때문입니다. 상태를 눈으로 보면서 명령을 눌러 봅니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li>가상머신과 컨테이너의 구조 차이</li>
+          <li>이미지 → 컨테이너로 <b>실체화</b>되는 과정</li>
+          <li><span class="cmd">run</span> <span class="cmd">ps</span> <span class="cmd">logs</span> <span class="cmd">exec</span> <span class="cmd">stop</span> <span class="cmd">rm</span></li>
+          <li><b>포트 매핑</b> <span class="cmd">-p 8080:80</span> 의 방향</li>
+          <li>컨테이너를 지우면 사라지는 것</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>남이 만든 이미지를 받아 띄우고 접속할 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 04-A</span>컨테이너 한살이</div>
+            <div class="panel-note">지금 상태에서 가능한 명령만 켜집니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="life" id="p4life"></div>
+            <div class="rowlab">명령</div>
+            <div class="btnrow">
+              <button class="btn" id="b4-pull">docker pull nginx</button>
+              <button class="btn pri" id="b4-run">docker run</button>
+              <button class="btn" id="b4-exec">docker exec → 내용 수정</button>
+              <button class="btn" id="b4-stop">docker stop</button>
+              <button class="btn" id="b4-start">docker start</button>
+              <button class="btn dgr" id="b4-rm">docker rm</button>
+              <button class="btn dgr" id="b4-rmi">docker rmi</button>
+            </div>
+            <div class="rowlab">run 옵션</div>
+            <div class="btnrow">
+              <button class="btn" id="b4-opt" aria-pressed="true">-p 8080:80 붙이기</button>
+              <span class="panel-note">끄고 실행하면 접속이 어떻게 되는지 확인해 보세요</span>
+            </div>
+            <div class="hint" id="p4hint">아직 이미지가 없습니다. <b>docker pull</b>부터 시작하세요.</div>
+          </div>
+          <div class="statebar" id="p4state"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 04-B</span>포트는 어디서 어디로 뚫리는가</div>
+            <div class="panel-note">위 실습의 컨테이너 상태와 연결되어 있습니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="portmap" id="p4map"></div>
+            <div class="hostbox">
+              <div class="urlbar">
+                <span class="pipe">브라우저</span>
+                <span class="fake" id="p4url">http://localhost:8080</span>
+                <button class="btn" id="b4-try8080">8080 으로 접속</button>
+                <button class="btn" id="b4-try80">80 으로 접속</button>
+              </div>
+              <div class="hint" id="p4browser">컨테이너를 먼저 실행해 주세요.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 5교시 ══════════ -->
+  <section class="page" data-track="docker" id="p5">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">5교시 · Dockerfile</div>
+      <h1>한 줄이 바뀌면 그 아래는 전부 다시 만든다</h1>
+      <p>Dockerfile은 위에서 아래로 층을 쌓습니다. 무엇을 위에 두느냐에 따라 빌드가 0.5초로 끝나기도, 25초가 걸리기도 합니다. 같은 수정을 두 순서에 동시에 적용해 봅니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><span class="cmd">FROM</span> <span class="cmd">WORKDIR</span> <span class="cmd">COPY</span> <span class="cmd">RUN</span> <span class="cmd">CMD</span></li>
+          <li><b>레이어 캐시</b>와 명령어 순서 최적화</li>
+          <li><span class="cmd">.dockerignore</span> 로 빌드 문맥 줄이기</li>
+          <li><b>볼륨</b> — 컨테이너보다 오래 사는 데이터</li>
+          <li>태그 규칙과 이미지 배포</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>내 앱을 이미지로 만들고, 빠르게 다시 만들 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 05-A</span>캐시가 깨지는 지점 찾기</div>
+            <div class="panel-note">무엇을 고쳤는지 고르고 빌드하세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">이번에 바꾼 파일</div>
+            <div class="btnrow">
+              <button class="btn" id="b5-src" aria-pressed="true">server.js 만 수정</button>
+              <button class="btn" id="b5-pkg" aria-pressed="false">package.json 수정</button>
+              <button class="btn" id="b5-none" aria-pressed="false">아무것도 안 고침</button>
+              <button class="btn pri" id="b5-build">docker build 실행</button>
+            </div>
+            <div class="dfgrid" id="p5grid" style="margin-top:12px"></div>
+            <div class="hint" id="p5hint">두 Dockerfile은 결과물이 완전히 같습니다. 순서만 다릅니다.</div>
+          </div>
+          <div class="statebar" id="p5state"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 05-B</span>컨테이너를 지우면 데이터도 지워지는가</div>
+            <div class="panel-note">4교시에서 사라졌던 그 변경사항</div>
+          </div>
+          <div class="panel-body">
+            <div class="volgrid">
+              <div class="vbox">
+                <div class="vt">docker run <b>(볼륨 없음)</b></div>
+                <div class="vdisk" id="p5v1">/app/data · 주문 12건</div>
+              </div>
+              <div class="vbox">
+                <div class="vt">docker run <b>-v mydata:/app/data</b></div>
+                <div class="vdisk" id="p5v2">/app/data · 주문 12건</div>
+              </div>
+            </div>
+            <div class="btnrow" style="margin-top:10px">
+              <button class="btn dgr" id="b5-rm">docker rm 으로 컨테이너 삭제</button>
+              <button class="btn gho" id="b5-vreset">다시 실행</button>
+            </div>
+            <div class="hint" id="p5vhint">양쪽 컨테이너에 똑같이 주문 데이터가 쌓였습니다. 이제 지워 보세요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 6교시 ══════════ -->
+  <section class="page" data-track="docker" id="p6">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">6교시 · Compose와 실전 활용</div>
+      <h1>설정 한 줄이 곧 구조 하나</h1>
+      <p>compose 파일의 각 줄은 그림의 어느 부분을 만드는 걸까요. 왼쪽 줄을 누르면 오른쪽 구조가, 오른쪽을 누르면 왼쪽 줄이 켜집니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li>서비스 · 네트워크 · 볼륨의 관계</li>
+          <li><span class="cmd">up -d</span> <span class="cmd">down</span> <span class="cmd">logs -f</span></li>
+          <li>컨테이너끼리는 <b>서비스 이름</b>으로 부른다</li>
+          <li><b>멀티스테이지 빌드</b>로 이미지 줄이기</li>
+          <li>자주 만나는 에러와 해결 순서</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>여러 컨테이너로 개발 환경을 한 번에 띄울 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 06-A</span>설정 ↔ 구조 연결하기</div>
+            <div class="panel-note">양쪽 어디를 눌러도 연결됩니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="cmpgrid">
+              <div class="yaml" id="p6yaml"></div>
+              <div class="diagbox" id="p6diag"></div>
+            </div>
+            <div class="linkcap" id="p6cap">노란 표시가 붙은 줄이나 상자를 눌러 보세요.</div>
+            <div class="rowlab">실행</div>
+            <div class="btnrow">
+              <button class="btn pri" id="b6-up">docker compose up -d</button>
+              <button class="btn dgr" id="b6-down">docker compose down</button>
+            </div>
+          </div>
+          <div class="statebar" id="p6state"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 06-B</span>멀티스테이지 — 무엇을 배에 싣는가</div>
+            <div class="panel-note">빌드 도구는 실행에 필요 없습니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow">
+              <button class="btn" id="b6-single" aria-pressed="true">단일 스테이지</button>
+              <button class="btn" id="b6-multi" aria-pressed="false">멀티스테이지</button>
+            </div>
+            <div class="stagebars" id="p6bars" style="margin-top:12px"></div>
+            <div class="hint" id="p6shint">한 단계로 만들면 빌드에만 쓰인 것들까지 최종 이미지에 그대로 남습니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  </main>
+
+  <nav class="footnav">
+    <button id="navPrev">← 이전 교시</button>
+    <div class="pos" id="navPos">1 / 6</div>
+    <button id="navNext">다음 교시 →</button>
+  </nav>
+</div>
+
+<script>
+"use strict";
+var RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+function on(id, fn){ var e=$(id); if(e) e.addEventListener("click", fn); }
+function setHint(id, msg, kind){ var e=$(id); if(!e) return; e.className = "hint" + (kind?(" "+kind):""); e.innerHTML = msg; }
+
+/* ───────── 페이지 네비게이션 ───────── */
+var LESSONS = [
+  {id:"p1", n:"01", t:"Git 기초",   c:"var(--git)"},
+  {id:"p2", n:"02", t:"브랜치·병합", c:"var(--git)"},
+  {id:"p3", n:"03", t:"원격·협업",  c:"var(--git)"},
+  {id:"p4", n:"04", t:"컨테이너",    c:"var(--dock)"},
+  {id:"p5", n:"05", t:"이미지 만들기",c:"var(--dock)"},
+  {id:"p6", n:"06", t:"Compose",    c:"var(--dock)"}
+];
+var cur = 0;
+(function buildRail(){
+  var rail = $("rail");
+  LESSONS.forEach(function(L, i){
+    var b = el("button","seg");
+    b.style.setProperty("--segc", L.c);
+    b.appendChild(el("span","n", L.n));
+    b.appendChild(el("span","t", L.t));
+    b.addEventListener("click", function(){ go(i); });
+    rail.appendChild(b);
+  });
+})();
+function go(i){
+  if(i<0 || i>=LESSONS.length) return;
+  cur = i;
+  LESSONS.forEach(function(L, k){
+    var pg = $(L.id);
+    if(pg) pg.classList.toggle("on", k===i);
+  });
+  var segs = $("rail").children;
+  for(var k=0;k<segs.length;k++) segs[k].setAttribute("data-on", k===i ? "1" : "0");
+  $("navPos").textContent = (i+1) + " / 6";
+  $("navPrev").disabled = (i===0);
+  $("navNext").disabled = (i===LESSONS.length-1);
+  var page = $(LESSONS[i].id);
+  if(page) page.scrollTop = 0;
+}
+on("navPrev", function(){ go(cur-1); });
+on("navNext", function(){ go(cur+1); });
+document.addEventListener("keydown", function(e){
+  var t = e.target && e.target.tagName;
+  if(t==="INPUT" || t==="TEXTAREA" || t==="SELECT") return;
+  if(e.key==="ArrowRight") go(cur+1);
+  if(e.key==="ArrowLeft") go(cur-1);
+});
+
+/* FLIP: 요소가 어디서 어디로 옮겨졌는지 눈으로 따라가게 함 */
+function flip(root, mutate){
+  if(RM){ mutate(); return; }
+  var before = {};
+  var pre = root.querySelectorAll("[data-flip]");
+  for(var i=0;i<pre.length;i++) before[pre[i].getAttribute("data-flip")] = pre[i].getBoundingClientRect();
+  mutate();
+  var post = root.querySelectorAll("[data-flip]");
+  for(var j=0;j<post.length;j++){
+    (function(node){
+      var key = node.getAttribute("data-flip");
+      var f = before[key];
+      var l = node.getBoundingClientRect();
+      if(!f){
+        if(node.animate) node.animate([{opacity:0,transform:"scale(.92)"},{opacity:1,transform:"none"}],{duration:220,easing:"ease-out"});
+        return;
+      }
+      var dx = f.left - l.left, dy = f.top - l.top;
+      if((dx||dy) && node.animate){
+        node.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],{duration:360,easing:"cubic-bezier(.2,.8,.2,1)"});
+      }
+    })(post[j]);
+  }
+}
+
+/* ════════ 1교시 ════════ */
+var P1_NAMES = ["app.js","style.css","README.md"];
+var P1 = null;
+function p1Init(){
+  P1 = { files:{}, commits:[], sel:{}, cn:0 };
+  P1_NAMES.forEach(function(n){ P1.files[n] = "work"; P1.sel[n] = false; });
+}
+var P1_ZONES = [
+  {k:"work",  n:"작업 디렉터리", c:"working directory"},
+  {k:"stage", n:"스테이징 영역", c:"index / staging area"},
+  {k:"repo",  n:"저장소",       c:"local repository"},
+  {k:"gone",  n:"사라짐",       c:"deleted from disk"}
+];
+function p1Sel(){ return P1_NAMES.filter(function(n){ return P1.sel[n]; }); }
+function p1In(z){ return P1_NAMES.filter(function(n){ return P1.files[n]===z; }); }
+function p1Head(){ return P1.commits.length ? P1.commits[P1.commits.length-1] : null; }
+
+function p1Render(){
+  var box = $("p1zones");
+  var hasGone = p1In("gone").length > 0;
+  box.className = "zones" + (hasGone ? " has-gone" : "");
+  box.innerHTML = "";
+  P1_ZONES.forEach(function(Z){
+    if(Z.k==="gone" && !hasGone) return;
+    var z = el("div","zone"); z.setAttribute("data-z", Z.k);
+    var h = el("div","zone-head");
+    h.appendChild(el("div","zn", Z.n));
+    h.appendChild(el("span","zc", Z.c));
+    z.appendChild(h);
+    var b = el("div","zone-body");
+    var list = p1In(Z.k);
+    if(!list.length) b.appendChild(el("div","emptyz","(비어 있음)"));
+    list.forEach(function(name){
+      var c = el("button","fcard");
+      c.setAttribute("data-z", Z.k);
+      c.setAttribute("data-flip", name);
+      c.setAttribute("data-sel", P1.sel[name] ? "1" : "0");
+      c.setAttribute("aria-pressed", P1.sel[name] ? "true" : "false");
+      var tk = el("span","tick", P1.sel[name] ? "✓" : "");
+      c.appendChild(tk);
+      c.appendChild(el("span","fn", name));
+      var label = Z.k==="work" ? "수정됨" : Z.k==="stage" ? "staged" : Z.k==="repo" ? "committed" : "삭제";
+      c.appendChild(el("span","tag", label));
+      c.addEventListener("click", function(){
+        if(Z.k==="gone") return;
+        P1.sel[name] = !P1.sel[name];
+        p1Render();
+      });
+      b.appendChild(c);
+    });
+    z.appendChild(b);
+    box.appendChild(z);
+  });
+
+  var hs = $("p1hist");
+  hs.innerHTML = "";
+  hs.appendChild(el("span","hlabel","커밋 히스토리"));
+  if(!P1.commits.length){
+    hs.appendChild(el("span","emptyz","아직 커밋이 없습니다"));
+  } else {
+    P1.commits.forEach(function(c, i){
+      var d = el("div","cdot" + (i===P1.commits.length-1 ? " head" : ""));
+      if(i>0) d.appendChild(el("span","link"));
+      d.appendChild(el("span","ball", c.id));
+      d.title = c.id + " · 담긴 파일: " + (c.files.join(", ") || "없음");
+      hs.appendChild(d);
+    });
+    hs.appendChild(el("span","refmark main","HEAD → main"));
+  }
+
+  var st = $("p1state");
+  st.innerHTML = "HEAD → <b>main</b> &nbsp;·&nbsp; 커밋 " + P1.commits.length + "개 &nbsp;·&nbsp; 스테이징 " +
+    p1In("stage").length + "개 &nbsp;·&nbsp; 수정됨 " + p1In("work").length + "개 &nbsp;·&nbsp; 선택 " + p1Sel().length + "개";
+
+  $("b-add").disabled     = p1Sel().filter(function(n){return P1.files[n]==="work";}).length===0;
+  $("b-commit").disabled  = p1In("stage").length===0;
+  $("b-unstage").disabled = p1Sel().filter(function(n){return P1.files[n]==="stage";}).length===0;
+  $("b-discard").disabled = p1Sel().filter(function(n){return P1.files[n]==="work" && p1Tracked(n);}).length===0;
+  $("b-edit").disabled    = p1Sel().filter(function(n){return P1.files[n]==="repo";}).length===0;
+  var noC = P1.commits.length===0;
+  $("b-soft").disabled = noC; $("b-mixed").disabled = noC; $("b-hard").disabled = noC;
+}
+function p1Tracked(name){
+  var h = p1Head();
+  return !!(h && h.files.indexOf(name) >= 0);
+}
+function p1Act(fn){ flip($("p1zones").parentNode, function(){ fn(); p1Render(); }); }
+
+function p1Bind(){
+  on("b-add", function(){
+    var moved = [];
+    p1Act(function(){
+      p1Sel().forEach(function(n){ if(P1.files[n]==="work"){ P1.files[n]="stage"; moved.push(n); } });
+    });
+    setHint("p1hint","<b>git add</b> 는 파일을 복사해 스테이징 영역에 올려 둡니다. 옮겨진 파일: <b>"+moved.join(", ")+"</b><br>아직 기록된 것은 아닙니다. 커밋해야 히스토리에 남습니다.","good");
+  });
+  on("b-commit", function(){
+    var staged = p1In("stage");
+    p1Act(function(){
+      staged.forEach(function(n){ P1.files[n]="repo"; P1.sel[n]=false; });
+      P1.cn++;
+      P1.commits.push({ id:"c"+P1.cn, files: p1In("repo").slice() });
+    });
+    setHint("p1hint","커밋 <b>c"+P1.cn+"</b> 생성. 이번 커밋에 담긴 파일: <b>"+staged.join(", ")+"</b><br>커밋은 스테이징에 올라온 것만 담습니다. 작업 디렉터리에만 있던 수정은 담기지 않습니다.","good");
+  });
+  on("b-unstage", function(){
+    var moved=[];
+    p1Act(function(){
+      p1Sel().forEach(function(n){ if(P1.files[n]==="stage"){ P1.files[n]="work"; moved.push(n); } });
+    });
+    setHint("p1hint","<b>git restore --staged</b> 는 스테이징에서만 내립니다. 파일 내용은 그대로입니다. 내려온 파일: <b>"+moved.join(", ")+"</b>");
+  });
+  on("b-discard", function(){
+    var moved=[];
+    p1Act(function(){
+      p1Sel().forEach(function(n){ if(P1.files[n]==="work" && p1Tracked(n)){ P1.files[n]="repo"; moved.push(n); } });
+    });
+    setHint("p1hint","<b>git restore</b> 는 마지막 커밋 상태로 파일을 덮어씁니다. 되돌린 파일: <b>"+moved.join(", ")+"</b><br>고치던 내용은 복구할 수 없습니다. 커밋되지 않은 변경은 Git이 지켜 주지 않습니다.","warn");
+  });
+  on("b-edit", function(){
+    var moved=[];
+    p1Act(function(){
+      p1Sel().forEach(function(n){ if(P1.files[n]==="repo"){ P1.files[n]="work"; moved.push(n); } });
+    });
+    setHint("p1hint","에디터로 <b>"+moved.join(", ")+"</b> 를 고쳤습니다. 커밋된 파일을 고치면 다시 작업 디렉터리 쪽으로 돌아옵니다.");
+  });
+
+  function doReset(mode){
+    var popped = P1.commits[P1.commits.length-1];
+    var newHead = P1.commits.length>=2 ? P1.commits[P1.commits.length-2] : {files:[]};
+    var delta = popped.files.filter(function(f){ return newHead.files.indexOf(f) < 0; });
+    p1Act(function(){
+      P1.commits.pop();
+      if(mode==="soft"){
+        delta.forEach(function(f){ P1.files[f]="stage"; });
+      } else if(mode==="mixed"){
+        delta.forEach(function(f){ P1.files[f]="work"; });
+        p1In("stage").forEach(function(f){ P1.files[f]="work"; });
+      } else {
+        p1In("stage").forEach(function(f){ P1.files[f]="repo"; });
+        p1In("work").forEach(function(f){ if(p1TrackedIn(newHead,f)) P1.files[f]="repo"; });
+        delta.forEach(function(f){ P1.files[f]="gone"; });
+      }
+      P1_NAMES.forEach(function(n){ P1.sel[n]=false; });
+    });
+    if(mode==="soft"){
+      setHint("p1hint","<b>--soft</b> · 커밋 "+popped.id+" 만 취소했습니다. 파일은 스테이징에 그대로 남아 있어 바로 다시 커밋할 수 있습니다. <br>커밋 메시지를 고치고 싶을 때 씁니다.","good");
+    } else if(mode==="mixed"){
+      setHint("p1hint","<b>--mixed</b> (기본값) · 커밋 "+popped.id+" 취소 + 스테이징도 비웠습니다. 파일 내용은 안전합니다. 다시 <b>add</b> 부터 하면 됩니다.");
+    } else {
+      setHint("p1hint","<b>--hard</b> · 커밋 "+popped.id+" 취소 + 스테이징 비움 + <b>작업 내용까지 되돌림</b>."+(delta.length? " 그 커밋에서 처음 추가됐던 <b>"+delta.join(", ")+"</b> 는 디스크에서 삭제됩니다." : "")+"<br>세 명령 중 유일하게 파일을 잃습니다. 실무에서 가장 조심할 것.","bad");
+    }
+  }
+  function p1TrackedIn(commit, name){ return commit.files.indexOf(name) >= 0; }
+  on("b-soft", function(){ doReset("soft"); });
+  on("b-mixed", function(){ doReset("mixed"); });
+  on("b-hard", function(){ doReset("hard"); });
+  on("b-reset1", function(){ p1Init(); p1Render(); setHint("p1hint","처음 상태로 돌렸습니다. 파일 3개가 모두 작업 디렉터리에 있습니다."); });
+}
+
+/* ════════ 2교시 ════════ */
+var P2 = null;
+function p2Init(){
+  P2 = {
+    commits:{ c0:{id:"c0", parents:[], lane:0, x:0} },
+    order:["c0"],
+    branches:{ main:"c0" },
+    head:"main",
+    n:0, x:0
+  };
+}
+function p2Tip(){ return P2.branches[P2.head]; }
+function p2Ancestors(id){
+  var seen = {}, stack = [id];
+  while(stack.length){
+    var c = stack.pop();
+    if(seen[c]) continue;
+    seen[c] = true;
+    var node = P2.commits[c];
+    if(node) node.parents.forEach(function(p){ stack.push(p); });
+  }
+  return seen;
+}
+function p2MergeKind(){
+  if(!P2.branches.feature) return {k:"none", why:"feature 브랜치가 아직 없습니다"};
+  if(P2.head!=="main") return {k:"none", why:"먼저 main으로 이동해야 합니다"};
+  var mt = P2.branches.main, ft = P2.branches.feature;
+  if(mt===ft) return {k:"none", why:"두 브랜치가 같은 커밋을 가리킵니다"};
+  if(p2Ancestors(ft)[mt]) return {k:"ff", why:"main이 feature의 조상 → 이름표만 앞으로 이동"};
+  if(p2Ancestors(mt)[ft]) return {k:"none", why:"feature가 이미 main에 포함되어 있습니다"};
+  return {k:"3way", why:"양쪽이 각자 나아감 → 합치는 커밋을 새로 만듦"};
+}
+function p2Render(){
+  var LANE = {0:56, 1:150};
+  var STEP = 92, PAD = 42;
+  var W = Math.max(520, PAD*2 + P2.x*STEP + 130), H = P2.branches.feature ? 225 : 132;
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="커밋 그래프">';
+  svg += '<text x="8" y="'+(LANE[0]-26)+'" font-family="var(--mono)" font-size="10" fill="#6B7486" letter-spacing="1">main</text>';
+  if(P2.branches.feature) svg += '<text x="8" y="'+(LANE[1]-26)+'" font-family="var(--mono)" font-size="10" fill="#6B7486" letter-spacing="1">feature</text>';
+
+  P2.order.forEach(function(id){
+    var c = P2.commits[id];
+    c.parents.forEach(function(pid){
+      var p = P2.commits[pid];
+      if(!p) return;
+      var x1 = PAD + p.x*STEP, y1 = LANE[p.lane], x2 = PAD + c.x*STEP, y2 = LANE[c.lane];
+      if(y1===y2){
+        svg += '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#CBD2DE" stroke-width="2"/>';
+      } else {
+        var mx = (x1+x2)/2;
+        svg += '<path d="M '+x1+' '+y1+' C '+mx+' '+y1+', '+mx+' '+y2+', '+x2+' '+y2+'" fill="none" stroke="#CBD2DE" stroke-width="2"/>';
+      }
+    });
+  });
+  P2.order.forEach(function(id){
+    var c = P2.commits[id];
+    var cx = PAD + c.x*STEP, cy = LANE[c.lane];
+    var fill = c.merge ? "#3A63B8" : (c.lane===1 ? "#B0335B" : "#2E7D4F");
+    svg += '<g class="gnode"><circle cx="'+cx+'" cy="'+cy+'" r="15" fill="'+fill+'"/>';
+    svg += '<text x="'+cx+'" y="'+(cy+3.5)+'" text-anchor="middle" font-family="var(--mono)" font-size="9.5" font-weight="700" fill="#fff">'+c.id+'</text></g>';
+  });
+  Object.keys(P2.branches).forEach(function(b){
+    var c = P2.commits[P2.branches[b]];
+    if(!c) return;
+    var cx = PAD + c.x*STEP, cy = LANE[c.lane];
+    var isHead = (P2.head===b);
+    var w = b.length*7.4 + 20;
+    var col = isHead ? "#131824" : "#8A93A3";
+    svg += '<g><rect x="'+(cx-w/2)+'" y="'+(cy+22)+'" width="'+w+'" height="19" rx="4" fill="'+(isHead?col:"#fff")+'" stroke="'+col+'"/>';
+    svg += '<text x="'+cx+'" y="'+(cy+35)+'" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="'+(isHead?"#fff":col)+'">'+b+'</text></g>';
+    if(isHead){
+      svg += '<text x="'+cx+'" y="'+(cy+56)+'" text-anchor="middle" font-family="var(--mono)" font-size="9.5" font-weight="700" fill="#131824">▲ HEAD</text>';
+    }
+  });
+  svg += '</svg>';
+  $("p2graph").innerHTML = svg;
+
+  var mk = p2MergeKind();
+  var pill = $("p2pred");
+  pill.className = "pill " + (mk.k==="ff" ? "ff" : mk.k==="3way" ? "tw" : "na");
+  pill.textContent = mk.k==="ff" ? "fast-forward" : mk.k==="3way" ? "3-way merge" : "병합할 것 없음";
+  $("p2predwhy").textContent = mk.why;
+
+  $("b2-branch").disabled  = !!P2.branches.feature;
+  $("b2-sw-main").disabled = (P2.head==="main");
+  $("b2-sw-feat").disabled = (P2.head==="feature" || !P2.branches.feature);
+  $("b2-merge").disabled   = (mk.k==="none");
+
+  $("p2state").innerHTML = "HEAD → <b>"+P2.head+"</b> &nbsp;·&nbsp; main = "+P2.branches.main +
+    (P2.branches.feature ? " &nbsp;·&nbsp; feature = "+P2.branches.feature : " &nbsp;·&nbsp; feature 없음") +
+    " &nbsp;·&nbsp; 총 커밋 " + P2.order.length + "개";
+}
+function p2Bind(){
+  on("b2-commit", function(){
+    P2.n++; P2.x++;
+    var id = "c"+P2.n;
+    var lane = (P2.head==="feature") ? 1 : 0;
+    P2.commits[id] = { id:id, parents:[P2.branches[P2.head]], lane:lane, x:P2.x };
+    P2.order.push(id);
+    P2.branches[P2.head] = id;
+    p2Render();
+    setHint("p2hint","<b>"+P2.head+"</b> 위에 "+id+" 를 쌓았습니다. 커밋은 항상 <b>HEAD가 가리키는 브랜치</b>에 붙습니다.");
+  });
+  on("b2-branch", function(){
+    P2.branches.feature = P2.branches[P2.head];
+    p2Render();
+    setHint("p2hint","브랜치를 만들어도 커밋은 하나도 늘지 않습니다. <b>feature</b> 라는 이름표가 지금 커밋을 함께 가리킬 뿐입니다.<br>아직 HEAD는 main에 있습니다. 이동하려면 <b>switch</b>가 필요합니다.","good");
+  });
+  on("b2-sw-main", function(){ P2.head="main"; p2Render(); setHint("p2hint","HEAD가 <b>main</b>으로 이동했습니다. 이제 커밋하면 main에 쌓입니다."); });
+  on("b2-sw-feat", function(){ P2.head="feature"; p2Render(); setHint("p2hint","HEAD가 <b>feature</b>로 이동했습니다. 이제 커밋하면 feature에 쌓입니다."); });
+  on("b2-merge", function(){
+    var mk = p2MergeKind();
+    if(mk.k==="ff"){
+      P2.branches.main = P2.branches.feature;
+      p2Render();
+      setHint("p2hint","<b>fast-forward</b> · main이 뒤처져 있기만 했으므로 새 커밋 없이 이름표만 앞으로 옮겼습니다. 그래프가 여전히 일직선입니다.","good");
+    } else if(mk.k==="3way"){
+      P2.n++; P2.x++;
+      var id = "m"+P2.n;
+      P2.commits[id] = { id:id, parents:[P2.branches.main, P2.branches.feature], lane:0, x:P2.x, merge:true };
+      P2.order.push(id);
+      P2.branches.main = id;
+      p2Render();
+      setHint("p2hint","<b>3-way merge</b> · 양쪽이 각자 나아갔기 때문에 <b>부모가 둘인 병합 커밋 "+id+"</b> 가 새로 생겼습니다. 충돌은 이 지점에서만 생길 수 있습니다.","good");
+    }
+  });
+  on("b2-reset", function(){ p2Init(); p2Render(); setHint("p2hint","처음 상태로 돌렸습니다. main에 커밋 하나만 있습니다."); });
+
+  /* 충돌 위젯 */
+  var CONF = { merged:false, done:false };
+  function cRender(){
+    var box = $("p2code");
+    if(!CONF.merged){
+      box.textContent = "3번째 줄을 서로 다르게 고쳤습니다. 아래에서 병합해 보세요.";
+    } else if(!CONF.done){
+      box.innerHTML =
+        '<span class="mk">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span>\n' +
+        '<span class="ours">const title = "우리 서비스";</span>\n' +
+        '<span class="mk">=======</span>\n' +
+        '<span class="theirs">const title = "Our Service";</span>\n' +
+        '<span class="mk">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature</span>';
+    } else {
+      box.innerHTML = '<span class="res">' + CONF.result + '</span>';
+    }
+    $("b2-ours").disabled = !CONF.merged || CONF.done;
+    $("b2-theirs").disabled = !CONF.merged || CONF.done;
+    $("b2-both").disabled = !CONF.merged || CONF.done;
+    $("b2-domerge").disabled = CONF.merged;
+  }
+  on("b2-domerge", function(){
+    CONF.merged = true; CONF.done = false; cRender();
+    setHint("p2chint","Git이 <b>어느 쪽이 맞는지 판단하지 못해</b> 두 버전을 파일 안에 나란히 적어 두고 멈췄습니다.<br>위쪽이 내 브랜치(HEAD), 아래쪽이 가져온 브랜치입니다. 이 상태로는 커밋되지 않습니다.","warn");
+  });
+  on("b2-ours", function(){ CONF.done=true; CONF.result='const title = "우리 서비스";'; cRender();
+    setHint("p2chint","표시자를 지우고 <b>내 쪽 줄만</b> 남겼습니다. 이제 <span class=\"cmd\">git add</span> 후 커밋하면 병합이 끝납니다.","good"); });
+  on("b2-theirs", function(){ CONF.done=true; CONF.result='const title = "Our Service";'; cRender();
+    setHint("p2chint","표시자를 지우고 <b>상대 쪽 줄만</b> 남겼습니다. 이제 <span class=\"cmd\">git add</span> 후 커밋하면 병합이 끝납니다.","good"); });
+  on("b2-both", function(){ CONF.done=true; CONF.result='const title = lang === "ko" ? "우리 서비스" : "Our Service";'; cRender();
+    setHint("p2chint","둘 다 살려 새로 썼습니다. <b>충돌 해결은 둘 중 하나를 고르는 일이 아니라, 올바른 코드를 만드는 일</b>입니다.","good"); });
+  on("b2-creset", function(){ CONF.merged=false; CONF.done=false; cRender();
+    setHint("p2chint","충돌 표시자 <span class=\"cmd\">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span> <span class=\"cmd\">=======</span> <span class=\"cmd\">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</span> 는 Git이 남긴 메모입니다. 지우는 것은 사람의 몫입니다."); });
+  cRender();
+}
+
+/* ════════ 3교시 ════════ */
+var P3 = null;
+function p3Init(){
+  var base = [{id:"A", by:"me"}];
+  P3 = { remote:base.slice(), origin:base.slice(), local:base.slice(), dirty:false, mn:0, tn:0 };
+}
+function isPrefix(a, b){
+  if(a.length > b.length) return false;
+  for(var i=0;i<a.length;i++){ if(!b[i] || b[i].id !== a[i].id) return false; }
+  return true;
+}
+function p3Render(){
+  var box = $("p3sync");
+  box.innerHTML = "";
+  function stack(title, sub, list, marks){
+    var r = el("div","repo");
+    var h = el("div","repo-h");
+    h.appendChild(el("div","rn", title));
+    h.appendChild(el("span","rs", sub));
+    r.appendChild(h);
+    var b = el("div","repo-b");
+    list.forEach(function(c, i){
+      var row = el("div","crow" + (c.ghost ? " ghost" : ""));
+      row.appendChild(el("div","cball " + (c.by==="team"?"team":c.by==="merge"?"merge":"me"), c.id));
+      row.appendChild(el("span","cid", c.ghost ? "받아둠 · main엔 없음"
+        : c.by==="team" ? "동료 커밋" : c.by==="merge" ? "병합 커밋" : "내 커밋"));
+      if(marks){
+        if(i === marks.origin) row.appendChild(el("span","refmark","origin/main"));
+        if(i === marks.main) row.appendChild(el("span","refmark main","main"));
+      }
+      b.appendChild(row);
+    });
+    r.appendChild(b);
+    return r;
+  }
+  box.appendChild(stack("원격 저장소", "GitHub · origin", P3.remote, null));
+
+  var fetched = P3.origin.filter(function(c){
+    return !P3.local.some(function(l){ return l.id === c.id; });
+  }).map(function(c){ return {id:c.id, by:c.by, ghost:true}; });
+  var localView = P3.local.concat(fetched);
+  var originTip = P3.origin[P3.origin.length-1];
+  var originIdx = -1;
+  for(var q=0;q<localView.length;q++){ if(localView[q].id === originTip.id) originIdx = q; }
+  box.appendChild(stack("로컬 저장소", ".git · 내 컴퓨터", localView, {origin:originIdx, main:P3.local.length-1}));
+
+  var w = el("div","repo");
+  var wh = el("div","repo-h");
+  wh.appendChild(el("div","rn","작업 디렉터리"));
+  wh.appendChild(el("span","rs","내가 지금 편집 중인 파일"));
+  w.appendChild(wh);
+  var wb = el("div","repo-b");
+  wb.appendChild(P3.dirty ? el("div","dirty","app.js · 수정됨 (커밋 안 됨)") : el("div","clean","변경 없음 · clean"));
+  w.appendChild(wb);
+  box.appendChild(w);
+
+  var ahead = P3.local.length - P3.origin.length;
+  var behind = P3.remote.length - P3.origin.length;
+  $("p3state").innerHTML =
+    "local main = " + P3.local.length + "커밋 &nbsp;·&nbsp; <b>origin/main</b>(내가 아는 원격) = " + P3.origin.length +
+    "커밋 &nbsp;·&nbsp; 실제 원격 = " + P3.remote.length + "커밋 &nbsp;·&nbsp; " +
+    (ahead>0 ? "앞선 커밋 "+ahead+"개" : "앞선 커밋 없음") + " / " +
+    (behind>0 ? "<b>아직 못 받은 원격 커밋 "+behind+"개</b>" : "받을 것 없음");
+
+  $("b3-commit").disabled = !P3.dirty;
+  $("b3-push").disabled = (P3.local.length <= P3.remote.length && isPrefix(P3.local, P3.remote));
+}
+function p3Bind(){
+  on("b3-edit", function(){ P3.dirty=true; p3Render();
+    setHint("p3hint","작업 디렉터리만 바뀌었습니다. 이 상태로는 <b>원격은 물론 로컬 저장소도</b> 아무것도 모릅니다."); });
+  on("b3-commit", function(){
+    P3.mn++; P3.local.push({id:"m"+P3.mn, by:"me"}); P3.dirty=false; p3Render();
+    setHint("p3hint","커밋은 <b>내 컴퓨터 안에서만</b> 끝나는 작업입니다. 인터넷이 끊겨도 됩니다. 원격은 아직 그대로입니다.","good");
+  });
+  on("b3-push", function(){
+    if(isPrefix(P3.remote, P3.local)){
+      P3.remote = P3.local.slice(); P3.origin = P3.local.slice(); p3Render();
+      setHint("p3hint","push 성공. 원격이 내 커밋을 그대로 이어받았습니다. <b>origin/main 메모도 같이 갱신</b>됩니다.","good");
+    } else {
+      p3Render();
+      setHint("p3hint","<b>push 거절됨 · non-fast-forward</b><br>원격에 내가 갖고 있지 않은 커밋이 있습니다. 그대로 밀어 넣으면 동료의 커밋이 사라지므로 Git이 막습니다.<br>해결 순서는 <b>pull → (필요하면 충돌 해결) → push</b> 입니다.","bad");
+    }
+  });
+  on("b3-fetch", function(){
+    var had = P3.remote.length - P3.origin.length;
+    P3.origin = P3.remote.slice(); p3Render();
+    setHint("p3hint","fetch 완료 · 원격 커밋 "+had+"개를 <b>받아만</b> 왔습니다. 가운데 <b>origin/main 표시만 올라가고 내 main은 제자리</b>인 점을 보세요. 내 작업 파일은 하나도 바뀌지 않습니다.", had>0?"good":null);
+  });
+  on("b3-pull", function(){
+    P3.origin = P3.remote.slice();
+    if(isPrefix(P3.local, P3.remote)){
+      P3.local = P3.remote.slice(); p3Render();
+      setHint("p3hint","pull = fetch + merge. 내가 만든 커밋이 없어 <b>fast-forward</b>로 따라잡았습니다.","good");
+    } else if(isPrefix(P3.remote, P3.local)){
+      p3Render();
+      setHint("p3hint","이미 최신입니다. 받을 커밋이 없습니다.");
+    } else {
+      var mine = P3.local.filter(function(c){
+        return !P3.remote.some(function(r){ return r.id===c.id; });
+      });
+      P3.mn++;
+      P3.local = P3.remote.concat(mine, [{id:"M"+P3.mn, by:"merge"}]);
+      p3Render();
+      setHint("p3hint","pull = fetch + merge. 양쪽에 각자 커밋이 있어 <b>병합 커밋이 생겼습니다</b>. 이제 push가 가능해집니다.","good");
+    }
+  });
+  on("b3-team", function(){
+    P3.tn++; P3.remote.push({id:"t"+P3.tn, by:"team"}); p3Render();
+    setHint("p3hint","동료가 원격에 커밋을 올렸습니다. <b>내 컴퓨터는 아직 이 사실을 모릅니다</b> — origin/main 표시가 움직이지 않은 것을 확인하세요.","warn");
+  });
+  on("b3-reset", function(){ p3Init(); p3Render(); setHint("p3hint","처음 상태로 돌렸습니다. 세 곳이 모두 같은 커밋 A를 가리킵니다."); });
+}
+
+/* ════════ 4교시 ════════ */
+var P4 = null;
+function p4Init(){ P4 = { img:false, ct:null, port:true, edited:false }; }
+function p4State(){
+  if(!P4.img && !P4.ct) return "none";
+  if(P4.img && !P4.ct) return "image";
+  return P4.ct.status;
+}
+var P4_NODES = [
+  {k:"none",    n:"아무것도 없음", c:"docker images → 비어 있음"},
+  {k:"image",   n:"이미지 있음",   c:"nginx:latest"},
+  {k:"running", n:"실행 중",       c:"STATUS: Up"},
+  {k:"stopped", n:"중지됨",        c:"STATUS: Exited"}
+];
+var P4_ARROWS = ["docker pull","docker run","docker stop"];
+function p4Render(){
+  var s = p4State();
+  var box = $("p4life");
+  box.innerHTML = "";
+  P4_NODES.forEach(function(N, i){
+    if(i>0){
+      var a = el("div","larrow");
+      a.appendChild(el("div","la", P4_ARROWS[i-1]));
+      a.appendChild(el("div","ll"));
+      if(i===3) a.appendChild(el("div","la","↔ start"));
+      box.appendChild(a);
+    }
+    var n = el("div","lnode");
+    n.setAttribute("data-on", s===N.k ? "1" : "0");
+    n.appendChild(el("div","ln", N.n));
+    n.appendChild(el("span","lc", N.c));
+    box.appendChild(n);
+  });
+
+  $("b4-pull").disabled  = P4.img;
+  $("b4-run").disabled   = !P4.img || !!P4.ct;
+  $("b4-exec").disabled  = s!=="running";
+  $("b4-stop").disabled  = s!=="running";
+  $("b4-start").disabled = s!=="stopped";
+  $("b4-rm").disabled    = !P4.ct || s==="running";
+  $("b4-rmi").disabled   = !P4.img || !!P4.ct;
+  $("b4-opt").disabled   = !!P4.ct;
+  $("b4-opt").setAttribute("aria-pressed", P4.port ? "true" : "false");
+  $("b4-opt").textContent = P4.port ? "-p 8080:80 붙임" : "-p 옵션 없음";
+
+  $("p4state").innerHTML =
+    "이미지: <b>" + (P4.img ? "nginx:latest" : "없음") + "</b> &nbsp;·&nbsp; 컨테이너: <b>" +
+    (P4.ct ? (P4.ct.status==="running" ? "실행 중" : "중지됨") : "없음") + "</b>" +
+    (P4.ct ? " &nbsp;·&nbsp; 포트: " + (P4.ct.port ? "8080 → 80" : "매핑 없음") : "") +
+    (P4.edited && P4.ct ? " &nbsp;·&nbsp; <b>컨테이너 안 파일 수정됨</b>" : "");
+
+  p4Map();
+}
+function p4Map(){
+  var m = $("p4map");
+  m.innerHTML = "";
+  var running = P4.ct && P4.ct.status==="running";
+  var mapped = P4.ct && P4.ct.port;
+  var h = el("div","portbox"); h.innerHTML = "내 컴퓨터(호스트)<b>localhost:8080</b>";
+  var p = el("div","pipe " + (running && mapped ? "live" : "dead"),
+    running && mapped ? "═══ 열림 ═══▶" : running ? "╌╌ 매핑 없음 ╌╌✕" : "╌╌ 컨테이너 꺼짐 ╌╌✕");
+  var c = el("div","portbox"); c.innerHTML = "컨테이너 안<b>nginx : 80</b>";
+  m.appendChild(h); m.appendChild(p); m.appendChild(c);
+}
+function p4Try(port){
+  var running = P4.ct && P4.ct.status==="running";
+  $("p4url").textContent = "http://localhost:" + port;
+  if(!running){
+    setHint("p4browser","연결할 수 없음 · 컨테이너가 실행 중이 아닙니다.","bad"); return;
+  }
+  if(!P4.ct.port){
+    setHint("p4browser","연결할 수 없음 · <b>-p 옵션 없이 실행</b>했기 때문에 호스트에서 들어갈 문이 없습니다. 컨테이너는 잘 돌고 있지만 밖에서 닿지 않습니다.","bad"); return;
+  }
+  if(port==="8080"){
+    setHint("p4browser","<b>연결 성공</b> · 8080으로 들어온 요청이 컨테이너의 80번으로 전달되었습니다."+(P4.edited?" 수정한 페이지가 보입니다.":" nginx 기본 페이지가 보입니다."),"good");
+  } else {
+    setHint("p4browser","연결할 수 없음 · 80번은 <b>컨테이너 안쪽</b> 번호입니다. 호스트에서는 왼쪽 번호(8080)로 들어가야 합니다.","bad");
+  }
+}
+function p4Bind(){
+  on("b4-pull", function(){ P4.img=true; p4Render();
+    setHint("p4hint","Docker Hub에서 이미지를 받았습니다. <b>이미지는 아직 실행된 것이 아닙니다</b> — 설계도 한 장을 받은 상태입니다."); });
+  on("b4-run", function(){
+    P4.ct = { status:"running", port:P4.port }; P4.edited=false; p4Render();
+    setHint("p4hint","run = <b>이미지로 컨테이너를 만들고 시작</b>. 같은 이미지로 컨테이너를 몇 개든 더 만들 수 있습니다."+(P4.port?"":"<br>이번엔 -p 없이 띄웠습니다. 아래 접속 실습에서 결과를 확인해 보세요."), P4.port?"good":"warn");
+  });
+  on("b4-exec", function(){ P4.edited=true; p4Render();
+    setHint("p4hint","exec으로 컨테이너 안에 들어가 index.html을 고쳤습니다. 이 변경은 <b>이미지가 아니라 이 컨테이너에만</b> 있습니다.","warn"); });
+  on("b4-stop", function(){ P4.ct.status="stopped"; p4Render();
+    setHint("p4hint","중지 ≠ 삭제. 컨테이너는 그대로 남아 있고 안의 변경도 유지됩니다. start로 다시 켤 수 있습니다."); });
+  on("b4-start", function(){ P4.ct.status="running"; p4Render();
+    setHint("p4hint","다시 켰습니다. 아까 고친 내용이 그대로 살아 있습니다."); });
+  on("b4-rm", function(){
+    var had = P4.edited;
+    P4.ct=null; P4.edited=false; p4Render();
+    setHint("p4hint", had
+      ? "컨테이너를 삭제했습니다. <b>안에서 고쳤던 내용도 함께 사라졌습니다.</b> 이미지는 그대로이므로 run 하면 처음 상태로 다시 뜹니다.<br>데이터를 남기려면 <b>볼륨</b>이 필요합니다 — 5교시에서 이어집니다."
+      : "컨테이너를 삭제했습니다. 이미지는 남아 있으므로 언제든 다시 run 할 수 있습니다.", had?"bad":null);
+  });
+  on("b4-rmi", function(){ P4.img=false; p4Render();
+    setHint("p4hint","이미지까지 지웠습니다. 다시 쓰려면 pull부터 해야 합니다. <b>컨테이너가 남아 있으면 이미지를 지울 수 없습니다</b> — 그래서 rm이 먼저입니다."); });
+  on("b4-opt", function(){ P4.port = !P4.port; p4Render();
+    setHint("p4hint", P4.port ? "다음 run에 <b>-p 8080:80</b> 을 붙입니다. 호스트 8080 → 컨테이너 80." : "다음 run에서 <b>-p 를 뺍니다</b>. 실행은 되지만 밖에서 접속할 수 없게 됩니다."); });
+  on("b4-try8080", function(){ p4Try("8080"); });
+  on("b4-try80", function(){ p4Try("80"); });
+}
+
+/* ════════ 5교시 ════════ */
+var P5 = { change:"src", built:false };
+var P5_FILES = {
+  bad: {
+    title:"순서를 신경 쓰지 않은 Dockerfile",
+    badge:"느림", cls:"bd",
+    lines:[
+      {code:"FROM node:20-alpine",        dep:"base", t:0.2},
+      {code:"WORKDIR /app",               dep:"base", t:0.1},
+      {code:"COPY . .",                   dep:"any",  t:0.4},
+      {code:"RUN npm install",            dep:"prev", t:24.0},
+      {code:'CMD ["node","server.js"]',   dep:"prev", t:0.1}
+    ]
+  },
+  good: {
+    title:"의존성을 먼저 굳힌 Dockerfile",
+    badge:"빠름", cls:"gd",
+    lines:[
+      {code:"FROM node:20-alpine",        dep:"base", t:0.2},
+      {code:"WORKDIR /app",               dep:"base", t:0.1},
+      {code:"COPY package*.json ./",      dep:"pkg",  t:0.3},
+      {code:"RUN npm install",            dep:"prev", t:24.0},
+      {code:"COPY . .",                   dep:"any",  t:0.4},
+      {code:'CMD ["node","server.js"]',   dep:"prev", t:0.1}
+    ]
+  }
+};
+function p5Compute(key){
+  var f = P5_FILES[key], broken = false, total = 0, states = [], firstBreak = -1;
+  f.lines.forEach(function(L, i){
+    var invalid = false;
+    if(!broken){
+      if(L.dep==="pkg" && (P5.change==="pkg")) invalid = true;
+      if(L.dep==="any" && (P5.change==="pkg" || P5.change==="src")) invalid = true;
+    }
+    if(invalid){ broken = true; firstBreak = i; }
+    if(broken){ states.push("rebuild"); total += L.t; }
+    else { states.push("cached"); }
+  });
+  return { states:states, total:Math.round(total*10)/10, firstBreak:firstBreak };
+}
+function p5Render(){
+  var grid = $("p5grid");
+  grid.innerHTML = "";
+  var res = {};
+  ["bad","good"].forEach(function(key){
+    var f = P5_FILES[key];
+    var r = P5.built ? p5Compute(key) : null;
+    res[key] = r;
+    var d = el("div","df");
+    var h = el("div","df-h");
+    h.appendChild(el("span",null,f.title));
+    var bd = el("span","badge " + (P5.built ? f.cls : ""), P5.built ? (r.total.toFixed(1)+"초") : "대기");
+    h.appendChild(bd);
+    d.appendChild(h);
+    f.lines.forEach(function(L, i){
+      var ln = el("div","dline");
+      ln.setAttribute("data-st", P5.built ? r.states[i] : "idle");
+      ln.appendChild(el("span","num", String(i+1)));
+      ln.appendChild(el("span","code", L.code));
+      ln.appendChild(el("span","st", P5.built ? (r.states[i]==="cached" ? "CACHED" : "REBUILD " + L.t.toFixed(1) + "s") : "—"));
+      d.appendChild(ln);
+    });
+    var tb = el("div","timebar");
+    var track = el("div","tb" + (P5.built && r.total > 5 ? " slow" : ""));
+    var i2 = el("i");
+    track.appendChild(i2);
+    tb.appendChild(track);
+    var tl = el("div","tlabel");
+    tl.appendChild(el("span",null,"빌드 시간"));
+    tl.appendChild(el("span",null, P5.built ? r.total.toFixed(1)+"초" : "—"));
+    tb.appendChild(tl);
+    d.appendChild(tb);
+    grid.appendChild(d);
+    if(P5.built){
+      var pct = Math.max(2, Math.min(100, (r.total / 25.0) * 100));
+      setTimeout(function(){ i2.style.width = pct + "%"; }, 30);
+    }
+  });
+
+  $("b5-src").setAttribute("aria-pressed", P5.change==="src" ? "true":"false");
+  $("b5-pkg").setAttribute("aria-pressed", P5.change==="pkg" ? "true":"false");
+  $("b5-none").setAttribute("aria-pressed", P5.change==="none" ? "true":"false");
+
+  if(!P5.built){
+    $("p5state").innerHTML = "바꾼 파일: <b>" + (P5.change==="src"?"server.js":P5.change==="pkg"?"package.json":"없음") + "</b> &nbsp;·&nbsp; 빌드를 실행해 보세요";
+    return;
+  }
+  var diff = Math.round((res.bad.total - res.good.total)*10)/10;
+  var verdict;
+  if(Math.abs(diff) < 0.5) verdict = "이번 변경에서는 두 순서의 차이가 거의 없음";
+  else if(diff > 0) verdict = "오른쪽이 <b>" + diff.toFixed(1) + "초 빠름</b> · 하루 30번 빌드하면 " + Math.round(diff*30/60) + "분 절약";
+  else verdict = "이번엔 오른쪽이 " + Math.abs(diff).toFixed(1) + "초 더 걸림 · 의존성이 바뀌면 어느 순서든 재설치";
+  $("p5state").innerHTML = "왼쪽 <b>" + res.bad.total.toFixed(1) + "초</b> &nbsp;vs&nbsp; 오른쪽 <b>" + res.good.total.toFixed(1) +
+    "초</b> &nbsp;·&nbsp; " + verdict;
+
+  if(P5.change==="none"){
+    setHint("p5hint","고친 것이 없으니 <b>양쪽 모두 전부 캐시</b>입니다. 순서 차이는 아직 드러나지 않습니다. 이제 파일을 고쳐 보세요.");
+  } else if(P5.change==="src"){
+    setHint("p5hint","소스만 고쳤는데 왼쪽은 <b>npm install까지 다시</b> 합니다. <b>COPY . . 가 npm install 위에 있어서</b>, 소스가 바뀌면 그 아래 줄이 전부 무효가 되기 때문입니다.<br>오른쪽은 package.json이 그대로라 설치 층이 살아남습니다. <b>자주 바뀌는 것일수록 아래에</b> 두세요.","good");
+  } else {
+    setHint("p5hint","의존성이 바뀌면 <b>양쪽 모두 npm install을 다시</b> 합니다. 이건 피할 수 없는 비용입니다. 순서 최적화는 <b>안 바뀌었을 때 건너뛰기 위한</b> 장치입니다.","warn");
+  }
+}
+function p5Bind(){
+  function pick(v){ P5.change=v; P5.built=false; p5Render();
+    setHint("p5hint","바꾼 파일을 골랐습니다. <b>docker build 실행</b>을 눌러 두 Dockerfile을 동시에 빌드해 보세요."); }
+  on("b5-src", function(){ pick("src"); });
+  on("b5-pkg", function(){ pick("pkg"); });
+  on("b5-none", function(){ pick("none"); });
+  on("b5-build", function(){ P5.built=true; p5Render(); });
+
+  on("b5-rm", function(){
+    $("p5v1").className = "vdisk gone";
+    $("p5v1").textContent = "/app/data · 사라짐";
+    $("p5v2").className = "vdisk kept";
+    $("p5v2").textContent = "볼륨 mydata · 주문 12건 유지";
+    setHint("p5vhint","컨테이너는 둘 다 사라졌습니다. 하지만 <b>볼륨은 컨테이너 바깥에 있는 저장 공간</b>이라 데이터가 남습니다.<br>새 컨테이너를 같은 볼륨에 연결하면 데이터를 그대로 이어서 씁니다. DB 컨테이너에 볼륨이 필수인 이유입니다.","good");
+  });
+  on("b5-vreset", function(){
+    $("p5v1").className = "vdisk"; $("p5v1").textContent = "/app/data · 주문 12건";
+    $("p5v2").className = "vdisk"; $("p5v2").textContent = "/app/data · 주문 12건";
+    setHint("p5vhint","양쪽 컨테이너에 똑같이 주문 데이터가 쌓였습니다. 이제 지워 보세요.");
+  });
+}
+
+/* ════════ 6교시 ════════ */
+var P6_YAML = [
+  {t:"services:", k:null},
+  {t:"  web:", k:"web", key:true},
+  {t:"    build: .", k:"web"},
+  {t:"    ports:", k:"ports", key:true},
+  {t:'      - "8080:3000"', k:"ports"},
+  {t:"    environment:", k:"env", key:true},
+  {t:"      DB_HOST: db", k:"env"},
+  {t:"    depends_on:", k:"dep", key:true},
+  {t:"      - db", k:"dep"},
+  {t:"", k:null},
+  {t:"  db:", k:"db", key:true},
+  {t:"    image: postgres:16", k:"db"},
+  {t:"    volumes:", k:"vol", key:true},
+  {t:"      - pgdata:/var/lib/postgresql/data", k:"vol"},
+  {t:"", k:null},
+  {t:"volumes:", k:"vol"},
+  {t:"  pgdata:", k:"vol"},
+  {t:"", k:null},
+  {t:"# networks: 따로 안 적으면 자동 생성", k:"net"}
+];
+var P6_CAP = {
+  web: "<b>web 서비스</b> · 이 폴더의 Dockerfile로 이미지를 만들어 컨테이너 하나를 띄웁니다. 서비스 이름이 곧 컨테이너의 주소가 됩니다.",
+  db:  "<b>db 서비스</b> · 이미지를 그대로 받아 씁니다. 내 컴퓨터에 PostgreSQL을 설치할 필요가 없습니다.",
+  ports:"<b>ports 8080:3000</b> · 내 브라우저에서 들어갈 문입니다. 왼쪽이 내 컴퓨터, 오른쪽이 컨테이너 안쪽 번호. db에는 ports가 없어서 <b>밖에서는 닿을 수 없고 web만</b> 접근합니다.",
+  env: "<b>environment DB_HOST: db</b> · web이 DB를 찾는 주소가 localhost가 아니라 <b>서비스 이름 db</b> 입니다. 컨테이너마다 localhost는 자기 자신을 뜻하기 때문입니다.",
+  dep: "<b>depends_on</b> · 시작 순서만 정합니다. db 컨테이너가 뜬 뒤 web을 띄우지만, <b>DB가 접속을 받을 준비까지 기다려 주지는 않습니다</b>. 앱에 재시도 로직이 필요한 이유입니다.",
+  vol: "<b>volumes pgdata</b> · DB 파일을 컨테이너 바깥에 둡니다. <span class=\"cmd\">docker compose down</span> 후 다시 올려도 데이터가 남습니다.",
+  net: "<b>기본 네트워크</b> · compose가 자동으로 만듭니다. 같은 네트워크의 컨테이너끼리는 <b>서비스 이름으로 서로를 부를 수 있습니다</b>."
+};
+var P6 = { up:false, hot:null, multi:false };
+function p6Yaml(){
+  var box = $("p6yaml");
+  box.innerHTML = "";
+  P6_YAML.forEach(function(L){
+    var b;
+    if(L.k){
+      b = el("button","yline");
+      b.type = "button";
+      b.setAttribute("data-k", L.k);
+      b.addEventListener("click", function(){ p6Hot(L.k); });
+      b.addEventListener("mouseenter", function(){ p6Hot(L.k); });
+    } else {
+      b = el("div","yline");
+    }
+    if(L.t.charAt(0) === "#") b.setAttribute("data-cm","1");
+    b.textContent = L.t === "" ? " " : L.t;
+    box.appendChild(b);
+  });
+}
+function p6Diag(){
+  var wOn = P6.up, dOn = P6.up;
+  var s = '<svg viewBox="0 0 440 300" role="img" aria-label="compose 구조도">';
+  s += '<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#8A93A3"/></marker></defs>';
+  /* host */
+  s += '<g class="dg" data-k="ports"><rect class="glow" x="8" y="6" width="424" height="40" rx="6" fill="#B87209" opacity="0"/>';
+  s += '<rect class="box" x="10" y="8" width="420" height="36" rx="5" fill="#FFFFFF" stroke="#CBD2DE"/>';
+  s += '<text x="24" y="31" font-family="var(--mono)" font-size="11" fill="#131824">내 브라우저 · localhost:8080</text>';
+  s += '<line class="box" x1="90" y1="46" x2="90" y2="86" stroke="#8A93A3" stroke-width="1.5" marker-end="url(#ah)"/>';
+  s += '<text x="98" y="72" font-family="var(--mono)" font-size="10" fill="#6B7486">8080 → 3000</text></g>';
+  /* network */
+  s += '<g class="dg" data-k="net"><rect class="glow" x="8" y="84" width="424" height="176" rx="9" fill="#B87209" opacity="0"/>';
+  s += '<rect class="box" x="10" y="86" width="420" height="172" rx="8" fill="#F7F9FC" stroke="#CBD2DE" stroke-dasharray="5 4"/>';
+  s += '<text x="22" y="104" font-family="var(--mono)" font-size="10" fill="#6B7486">network: app_default</text></g>';
+  /* web */
+  s += '<g class="dg" data-k="web"><rect class="glow" x="30" y="116" width="150" height="72" rx="7" fill="#B87209" opacity="0"/>';
+  s += '<rect class="box" x="32" y="118" width="146" height="68" rx="6" fill="'+(wOn?"#0E7C7B":"#FFFFFF")+'" stroke="'+(wOn?"#0E7C7B":"#CBD2DE")+'"/>';
+  s += '<text x="105" y="145" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="'+(wOn?"#fff":"#131824")+'">web</text>';
+  s += '<text x="105" y="163" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="'+(wOn?"rgba(255,255,255,.8)":"#6B7486")+'">:3000</text>';
+  s += '<text x="105" y="177" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="'+(wOn?"rgba(255,255,255,.7)":"#8A93A3")+'">'+(wOn?"running":"not created")+'</text></g>';
+  /* db */
+  s += '<g class="dg" data-k="db"><rect class="glow" x="258" y="116" width="150" height="72" rx="7" fill="#B87209" opacity="0"/>';
+  s += '<rect class="box" x="260" y="118" width="146" height="68" rx="6" fill="'+(dOn?"#0E7C7B":"#FFFFFF")+'" stroke="'+(dOn?"#0E7C7B":"#CBD2DE")+'"/>';
+  s += '<text x="333" y="145" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="'+(dOn?"#fff":"#131824")+'">db</text>';
+  s += '<text x="333" y="163" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="'+(dOn?"rgba(255,255,255,.8)":"#6B7486")+'">:5432</text>';
+  s += '<text x="333" y="177" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="'+(dOn?"rgba(255,255,255,.7)":"#8A93A3")+'">'+(dOn?"running":"not created")+'</text></g>';
+  /* env link web->db */
+  s += '<g class="dg" data-k="env"><line class="box" x1="180" y1="142" x2="256" y2="142" stroke="#8A93A3" stroke-width="1.5" marker-end="url(#ah)"/>';
+  s += '<text x="218" y="135" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="#6B7486">host: db</text></g>';
+  /* depends_on */
+  s += '<g class="dg" data-k="dep"><line class="box" x1="256" y1="172" x2="182" y2="172" stroke="#8A93A3" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah)"/>';
+  s += '<text x="219" y="187" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="#6B7486">먼저 시작</text></g>';
+  /* volume */
+  s += '<g class="dg" data-k="vol"><rect class="glow" x="258" y="206" width="150" height="42" rx="7" fill="#B87209" opacity="0"/>';
+  s += '<line x1="333" y1="188" x2="333" y2="206" stroke="#8A93A3" stroke-width="1.5" marker-end="url(#ah)"/>';
+  s += '<rect class="box" x="260" y="208" width="146" height="38" rx="6" fill="#FFFFFF" stroke="#CBD2DE"/>';
+  s += '<text x="333" y="226" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="#131824">volume: pgdata</text>';
+  s += '<text x="333" y="239" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#6B7486">컨테이너보다 오래 산다</text></g>';
+  s += '<text x="22" y="278" font-family="var(--mono)" font-size="9.5" fill="#8A93A3">docker compose ' + (P6.up ? "up -d  →  2개 실행 중" : "down  →  컨테이너 없음") + '</text>';
+  s += '</svg>';
+  $("p6diag").innerHTML = s;
+  var gs = $("p6diag").querySelectorAll(".dg");
+  for(var i=0;i<gs.length;i++){
+    (function(g){
+      var k = g.getAttribute("data-k");
+      g.style.cursor = "pointer";
+      g.addEventListener("click", function(){ p6Hot(k); });
+      g.addEventListener("mouseenter", function(){ p6Hot(k); });
+    })(gs[i]);
+  }
+  p6Paint();
+}
+function p6Hot(k){ P6.hot = k; p6Paint(); $("p6cap").innerHTML = P6_CAP[k] || "노란 표시가 붙은 줄이나 상자를 눌러 보세요."; }
+function p6Paint(){
+  var ys = $("p6yaml").querySelectorAll(".yline");
+  for(var i=0;i<ys.length;i++) ys[i].setAttribute("data-hot", (P6.hot && ys[i].getAttribute("data-k")===P6.hot) ? "1":"0");
+  var gs = $("p6diag").querySelectorAll(".dg");
+  for(var j=0;j<gs.length;j++) gs[j].setAttribute("data-hot", (P6.hot && gs[j].getAttribute("data-k")===P6.hot) ? "1":"0");
+}
+function p6State(){
+  $("p6state").innerHTML = P6.up
+    ? "실행 중: <b>web</b>, <b>db</b> &nbsp;·&nbsp; 네트워크 app_default &nbsp;·&nbsp; 볼륨 pgdata &nbsp;·&nbsp; <b>명령 한 줄로 2개 컨테이너</b>"
+    : "실행 중인 컨테이너 없음 &nbsp;·&nbsp; 볼륨 pgdata 는 남아 있음 &nbsp;·&nbsp; up 을 눌러 보세요";
+}
+function p6Bind(){
+  p6Yaml(); p6Diag(); p6State();
+  on("b6-up", function(){
+    P6.up = true; p6Diag(); p6State();
+    $("p6cap").innerHTML = "<b>up -d</b> · depends_on 순서에 따라 <b>db → web</b> 순으로 시작했습니다. 네트워크와 볼륨도 없으면 자동으로 만들어집니다.";
+  });
+  on("b6-down", function(){
+    P6.up = false; p6Diag(); p6State();
+    $("p6cap").innerHTML = "<b>down</b> · 컨테이너와 네트워크는 지워졌지만 <b>볼륨 pgdata는 남습니다</b>. 데이터까지 지우려면 <span class=\"cmd\">down -v</span> 를 씁니다.";
+  });
+  function bars(){
+    var box = $("p6bars");
+    box.innerHTML = "";
+    var rows = P6.multi
+      ? [{n:"빌드 스테이지", v:1120, cls:"big", note:"버려짐"}, {n:"최종 이미지", v:180, cls:"small", note:"180 MB"}]
+      : [{n:"최종 이미지", v:1120, cls:"big", note:"1.12 GB"}];
+    rows.forEach(function(r){
+      var row = el("div","sbar");
+      row.appendChild(el("div","nm", r.n));
+      var t = el("div","track");
+      var i = el("i", r.cls);
+      t.appendChild(i);
+      row.appendChild(t);
+      row.appendChild(el("div","amt", r.note));
+      box.appendChild(row);
+      setTimeout(function(){ i.style.width = Math.max(3,(r.v/1200)*100) + "%"; }, 30);
+    });
+    $("b6-single").setAttribute("aria-pressed", P6.multi ? "false":"true");
+    $("b6-multi").setAttribute("aria-pressed", P6.multi ? "true":"false");
+    setHint("p6shint", P6.multi
+      ? "빌드 도구·소스·캐시는 <b>빌드 스테이지에 두고 버립니다</b>. 최종 이미지에는 실행에 필요한 결과물만 <span class=\"cmd\">COPY --from=builder</span> 로 옮깁니다. 6배 이상 가벼워집니다."
+      : "한 단계로 만들면 컴파일러, 개발 의존성, 빌드 캐시까지 최종 이미지에 그대로 남습니다. 배포할 때마다 이 용량을 전부 주고받게 됩니다.", P6.multi?"good":"warn");
+  }
+  on("b6-single", function(){ P6.multi=false; bars(); });
+  on("b6-multi", function(){ P6.multi=true; bars(); });
+  bars();
+}
+
+/* ───────── 시작 ───────── */
+p1Init(); p1Bind(); p1Render();
+p2Init(); p2Bind(); p2Render();
+p3Init(); p3Bind(); p3Render();
+p4Init(); p4Bind(); p4Render();
+p5Bind(); p5Render();
+p6Bind();
+go(0);
+</script>
+</body>
+</html>
